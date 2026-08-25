@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Check — Red Flag Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js"></script>
+<style>
+  :root{
+    --bg:#0B141C;
+    --panel:#121F2B;
+    --panel-2:#0E1922;
+    --border:#22374A;
+    --text:#E9EEF2;
+    --muted:#8CA1B4;
+    --muted-2:#5E7185;
+    --amber:#E3A038;
+    --amber-dim:#8A6528;
+    --danger:#D9604F;
+    --safe:#4FA383;
+    --mono:'IBM Plex Mono', monospace;
+    --body:'Inter', sans-serif;
+    --display:'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    padding:32px 20px 64px;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(227,160,56,0.06), transparent 40%),
+      radial-gradient(circle at 85% 10%, rgba(79,163,131,0.05), transparent 35%);
+  }
+  .wrap{max-width:860px; margin:0 auto;}
+
+  header{margin-bottom:28px; border-bottom:1px solid var(--border); padding-bottom:20px;}
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--amber); display:flex; align-items:center; gap:8px; margin-bottom:10px;
+  }
+  .eyebrow::before{content:"⚑"; font-size:13px;}
+  h1{
+    font-family:var(--display); font-weight:700; font-size:32px; margin:0 0 6px;
+    letter-spacing:-0.01em;
+  }
+  .sub{color:var(--muted); font-size:14.5px; max-width:520px; line-height:1.5;}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:22px; margin-bottom:20px;
+  }
+  label{
+    display:block; font-family:var(--mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--muted-2); margin-bottom:8px;
+  }
+  textarea, input[type=text]{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    border-radius:7px; padding:12px 14px; font-family:var(--body); font-size:14.5px;
+    resize:vertical; outline:none; transition:border-color .15s;
+  }
+  textarea{min-height:130px; line-height:1.5;}
+  textarea:focus, input[type=text]:focus{border-color:var(--amber);}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px;}
+  .field{margin-bottom:0;}
+  .fieldset-note{font-size:12px; color:var(--muted-2); margin-top:6px;}
+
+  .mode-select{display:flex; gap:8px; flex-wrap:wrap;}
+  .mode-btn{
+    background:var(--panel-2); border:1px solid var(--border); color:var(--muted);
+    font-family:var(--mono); font-size:12px; padding:8px 14px; border-radius:100px;
+    cursor:pointer; margin-top:0; transition:all .15s;
+  }
+  .mode-btn:hover{border-color:var(--amber-dim); color:var(--text);}
+  .mode-btn.active{background:rgba(227,160,56,0.12); border-color:var(--amber); color:var(--amber);}
+  .detected-tag{font-family:var(--mono); font-size:11px; color:var(--muted-2); margin-top:8px; display:none;}
+  .detected-tag.show{display:block;}
+
+  .shot-zone{
+    border:1.5px dashed var(--border); border-radius:8px; padding:16px;
+    display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .15s, background .15s;
+    margin-top:16px; background:var(--panel-2);
+  }
+  .shot-zone:hover, .shot-zone.dragover{border-color:var(--amber); background:rgba(227,160,56,0.05);}
+  .shot-zone-icon{font-size:20px; flex-shrink:0;}
+  .shot-zone-text{font-size:13px; color:var(--muted);}
+  .shot-zone-text strong{color:var(--text); font-family:var(--display); font-weight:600;}
+  .shot-status{font-family:var(--mono); font-size:12px; color:var(--amber); margin-top:8px; display:none;}
+  .shot-status.show{display:flex; align-items:center; gap:8px;}
+  .shot-status.error{color:var(--danger);}
+  .spinner{
+    width:12px; height:12px; border:2px solid var(--amber-dim); border-top-color:var(--amber);
+    border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  button{
+    margin-top:20px; background:var(--amber); color:#1A1206; border:none;
+    font-family:var(--display); font-weight:700; font-size:14.5px; letter-spacing:0.01em;
+    padding:13px 26px; border-radius:7px; cursor:pointer; transition:transform .1s, background .15s;
+  }
+  button:hover{background:#EFAE47;}
+  button:active{transform:scale(0.98);}
+  button:focus-visible{outline:2px solid var(--text); outline-offset:2px;}
+
+  .results{display:none;}
+  .results.show{display:block;}
+
+  .score-row{display:grid; grid-template-columns:220px 1fr; gap:22px; align-items:center;}
+  @media (max-width:560px){ .score-row{grid-template-columns:1fr;} .row2{grid-template-columns:1fr;} }
+
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center;}
+  .gauge-label{font-family:var(--mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted-2); margin-top:6px;}
+  .gauge-score{font-family:var(--display); font-size:15px; margin-top:2px;}
+  .risk-tag{
+    font-family:var(--mono); font-size:12px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:4px 10px; border-radius:100px; margin-top:8px; display:inline-block;
+  }
+
+  .summary-line{font-size:14.5px; color:var(--muted); line-height:1.6;}
+  .summary-line strong{color:var(--text);}
+
+  .cat{margin-top:22px; padding-top:18px; border-top:1px solid var(--border);}
+  .cat:first-child{margin-top:0; padding-top:0; border-top:none;}
+  .cat-title{
+    font-family:var(--display); font-weight:600; font-size:15px; margin-bottom:10px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .cat-count{font-family:var(--mono); font-size:11px; color:var(--muted-2); font-weight:400;}
+
+  .flag-item{
+    display:flex; gap:10px; padding:9px 0; font-size:13.5px; line-height:1.5;
+  }
+  .flag-icon{flex-shrink:0; width:18px; text-align:center; font-size:13px; margin-top:1px;}
+  .flag-item.fired .flag-icon{color:var(--danger);}
+  .flag-item.clean .flag-icon{color:var(--safe);}
+  .flag-item.fired .flag-text{color:var(--text);}
+  .flag-item.clean .flag-text{color:var(--muted-2);}
+  .flag-detail{font-family:var(--mono); font-size:11.5px; color:var(--muted-2); display:block; margin-top:2px;}
+
+  .roadmap{
+    background:var(--panel-2); border:1px dashed var(--border); border-radius:10px;
+    padding:18px 22px; margin-top:6px;
+  }
+  .roadmap-title{font-family:var(--mono); font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted-2); margin-bottom:10px;}
+  .roadmap-item{font-size:13px; color:var(--muted-2); padding:5px 0; display:flex; gap:8px;}
+  .roadmap-item::before{content:"○"; color:var(--muted-2);}
+
+  footer{margin-top:28px; font-size:12px; color:var(--muted-2); text-align:center; font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Signal Check · v1.3</div>
+    <h1>Red flag detector</h1>
+    <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
+  </header>
+
+  <div class="panel">
+    <div class="field">
+      <label>Check type</label>
+      <div class="mode-select" id="modeSelect">
+        <button type="button" class="mode-btn active" data-mode="auto">Auto-detect</button>
+        <button type="button" class="mode-btn" data-mode="social">Social post</button>
+        <button type="button" class="mode-btn" data-mode="email">Email / message</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:16px;">
+      <label for="posttext">Post text</label>
+      <textarea id="posttext" placeholder="Paste the post, headline, caption, or email body here…"></textarea>
+    </div>
+    <div class="shot-zone" id="shotZone" tabindex="0">
+      <div class="shot-zone-icon">🖼️</div>
+      <div class="shot-zone-text"><strong>Paste a screenshot</strong> (Ctrl+V / Cmd+V) or click to upload — text will be extracted automatically</div>
+      <input type="file" id="shotInput" accept="image/*" style="display:none;">
+    </div>
+    <div class="shot-status" id="shotStatus"><div class="spinner"></div><span id="shotStatusText">Reading image…</span></div>
+    <div class="row2">
+      <div class="field">
+        <label for="account">Account / username (optional)</label>
+        <input type="text" id="account" placeholder="e.g. PatriotEagle76">
+      </div>
+      <div class="field">
+        <label for="sourceurl">Source domain (optional)</label>
+        <input type="text" id="sourceurl" placeholder="e.g. abcnews.com.co">
+      </div>
+    </div>
+    <div class="fieldset-note">v1 doesn't fetch links automatically — paste the text of the post itself for the fullest read.</div>
+    <div class="detected-tag" id="detectedTag"></div>
+    <button id="runbtn">Run check</button>
+  </div>
+
+  <div class="results" id="results">
+    <div class="panel">
+      <div class="score-row">
+        <div class="gauge-wrap">
+          <svg id="gauge" width="200" height="120" viewBox="0 0 200 120">
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#22374A" stroke-width="14" stroke-linecap="round"/>
+            <path id="gaugeArc" d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#4FA383"/>
+                <stop offset="50%" stop-color="#E3A038"/>
+                <stop offset="100%" stop-color="#D9604F"/>
+              </linearGradient>
+            </defs>
+            <line id="needle" x1="100" y1="100" x2="100" y2="30" stroke="#E9EEF2" stroke-width="3" stroke-linecap="round" style="transform-origin:100px 100px;"/>
+            <circle cx="100" cy="100" r="5" fill="#E9EEF2"/>
+          </svg>
+          <div class="gauge-score" id="gaugeScore">0 / 10</div>
+          <div class="gauge-label">Risk score</div>
+          <div class="risk-tag" id="riskTag">Low</div>
+        </div>
+        <div>
+          <div class="summary-line" id="summaryLine">Run a check to see results.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="categoryPanel"></div>
+
+    <div class="roadmap">
+      <div class="roadmap-title">Planned for v2 — needs an API</div>
+      <div class="roadmap-item">Reverse image search — same image, different captions over time</div>
+      <div class="roadmap-item">Fact Check Tools API cross-reference</div>
+      <div class="roadmap-item">Byline / journalist verification</div>
+    </div>
+  </div>
+
+  <footer>Personal tool · not a source of truth · your judgment makes the final call</footer>
+</div>
+
+<script>
+const RULE_MODES = {
+  "Account naming": ["social"],
+  "Quote attribution": ["social"],
+  "Recycled / vague framing": ["social", "email"],
+  "Engagement-farm tells": ["social"],
+  "Sourcing red flags": ["social", "email"],
+  "Inflammatory without substance": ["social", "email"],
+  "Phishing / credential harvesting": ["email"]
+};
+
+const RULES = {
+  "Account naming": [
+    {
+      test: (t, acct) => acct && /^[a-z]+\d{3,}$/i.test(acct.trim()),
+      weight: 2,
+      label: "Name + trailing digit string (e.g. \"JohnSmith8827\")",
+      detail: "Common auto-generated / bot-farm naming pattern."
+    },
+    {
+      test: (t, acct) => acct && /(patriot|true|real|maga|anon|freedom|liberty|resist)[a-z]*\d{2,}/i.test(acct.trim()),
+      weight: 2,
+      label: "Generic ideological word + digits",
+      detail: "Pattern common to coordinated/inauthentic account clusters."
+    },
+    {
+      test: (t, acct) => acct && /\b(trash|corrupt|exposed|expose|fraud|liars?|crooked|takedown|takeout|watchdog)\b/i.test(acct.trim()),
+      weight: 1,
+      label: "Account name is itself an editorial verdict",
+      detail: "Openly advocacy-branded, not concealed — still worth weighing as a non-neutral source."
+    }
+  ],
+  "Quote attribution": [
+    {
+      test: t => {
+        const hasNameColon = /\b[A-Z][a-zA-Z']{1,15}(?:\s+[A-Z][a-zA-Z']{1,15}){0,3}\s*:/.test(t);
+        const hasCitation = /according to|interview|said in|told (reporters|the press)|statement|press conference|spokesperson|full video|watch the clip/i.test(t);
+        return hasNameColon && !hasCitation;
+      },
+      weight: 1.5,
+      label: "Statement attributed to a named person with no cited source",
+      detail: "\"NAME:\" framing implies a direct quote or paraphrase without saying where it actually came from."
+    }
+  ],
+  "Recycled / vague framing": [
+    {
+      test: t => /you (won'?t|wont) believe|they (don'?t|dont) want you to know|what they('re| are) hiding|the truth about/i.test(t),
+      weight: 1.5,
+      label: "Urgent-but-vague headline framing",
+      detail: "Promises revelation without stating the actual claim."
+    },
+    {
+      test: t => /\b(destroys?|obliterates?|annihilates?|demolishes?|wrecks?|owns?)\b.{0,25}\b(protester|liberal|conservative|democrat|republican|leftist|rightwinger|reporter|activist|critic)/i.test(t),
+      weight: 1.5,
+      label: "\"X destroys/obliterates Y\" debate-clip framing",
+      detail: "Common clickbait pattern presenting a clip as a decisive win without evidence."
+    }
+  ],
+  "Engagement-farm tells": [
+    {
+      test: t => /share (this )?before (it|this) (gets? )?(deleted|taken down|banned|removed)/i.test(t),
+      weight: 2,
+      label: "\"Share before this gets deleted\"",
+      detail: "Manufactures urgency to spread before scrutiny."
+    },
+    {
+      test: t => /(more (info|information|details)|full story|link|source)s?\s*(is\s*)?(in|below|down)\s*(the\s*)?comments?/i.test(t) || /see comments|check comments|comments? below/i.test(t),
+      weight: 1.5,
+      label: "\"More info in comments\" — defers verification",
+      detail: "Claim is made upfront; evidence is pushed off-post."
+    },
+    {
+      test: t => /!!!|❗{2,}|🚨.*🚨/.test(t),
+      weight: 1,
+      label: "Manufactured urgency markers (multiple ! or 🚨)",
+      detail: ""
+    }
+  ],
+  "Sourcing red flags": [
+    {
+      test: t => /(sources say|experts (confirm|say|agree)|studies show|reports (indicate|suggest))/i.test(t),
+      weight: 1.5,
+      label: "Unnamed-authority phrasing (\"sources say\", \"experts confirm\")",
+      detail: "No named, checkable source given — verify independently."
+    },
+    {
+      test: (t, acct, url) => url && /\.(com|net|org)\.(co|ru|info)$|-(news|report|daily)\d*\.(com|net)$/i.test(url.trim()),
+      weight: 2,
+      label: "Domain resembles a lookalike/misspelled outlet",
+      detail: "Pattern matches known outlet-mimicking domain structures."
+    }
+  ],
+  "Inflammatory without substance": [
+    {
+      test: t => {
+        const severeWords = ["lie","liar","lies","lying","fraud","fraudulent","crooked","traitor","criminal","corrupt"];
+        const moderateWords = ["outrageous","shocking","disgusting","evil","disgrace","insane","unbelievable","horrific","sick","savage","monster","chaos","destroy","attack","invasion","tyranny","radical","extremist","disgraced"];
+        const severeFound = severeWords.filter(w => new RegExp("\\b"+w+"\\b","i").test(t));
+        const moderateFound = moderateWords.filter(w => new RegExp("\\b"+w+"\\b","i").test(t));
+        return severeFound.length >= 1 || moderateFound.length >= 2;
+      },
+      weight: 2,
+      label: "High density of emotionally-loaded language",
+      detail: "Multiple charged words with little factual anchoring nearby."
+    },
+    {
+      test: t => /\b(they always|these people|every single one|all of them|typical|as usual|what do you expect from)\b/i.test(t),
+      weight: 1.5,
+      label: "Broad group generalization",
+      detail: ""
+    },
+    {
+      test: t => {
+        const words = t.split(/\s+/).filter(w => w.length >= 4);
+        const capsWords = words.filter(w => w === w.toUpperCase() && /[A-Z]/.test(w));
+        return words.length > 0 && (capsWords.length / words.length) > 0.12;
+      },
+      weight: 1,
+      label: "Elevated ALL-CAPS word density",
+      detail: ""
+    },
+    {
+      test: t => {
+        const hasStrongClaim = /\b(confirmed|proof|caught|exposed|admits|arrested|guilty|lie|lies|lying|liar)\b/i.test(t);
+        const hasDetail = /\b(19|20)\d{2}\b|\b\d{1,2}\/\d{1,2}\b/.test(t);
+        return hasStrongClaim && !hasDetail;
+      },
+      weight: 1.5,
+      label: "Strong claim with no name, date, or location given",
+      detail: ""
+    },
+    {
+      test: t => {
+        const hasAbsoluteDenial = /\bthere (was|is|were|are) (never|no such thing as|not a single)\b/i.test(t);
+        const hasDetail = /\b(19|20)\d{2}\b|\b\d{1,2}\/\d{1,2}\b/.test(t);
+        return hasAbsoluteDenial && !hasDetail;
+      },
+      weight: 1.5,
+      label: "Absolute denial stated as flat fact, no evidence given",
+      detail: "\"There was never...\" style claims assert a negative with total certainty and no source."
+    }
+  ],
+  "Phishing / credential harvesting": [
+    {
+      test: t => /don'?t (worry about |need to )?verify.{0,20}(email|sender|itself)|even with a closed account|entering your (credentials|password|username)/i.test(t),
+      weight: 3,
+      label: "Explicitly tells you not to verify legitimacy before acting",
+      detail: "Real institutions never discourage you from verifying who's contacting you — this is a severe tell."
+    },
+    {
+      test: t => /\b(upload|attach|provide)\b.{0,30}\b(proof of identity|identity documents?|id document|billing information|payment method documentation)\b/i.test(t),
+      weight: 2.5,
+      label: "Requests ID or payment documents via email",
+      detail: "Legitimate companies don't verify identity by asking you to upload documents through email."
+    },
+    {
+      test: t => /\b(type in|enter) your (username and )?password\b/i.test(t),
+      weight: 2,
+      label: "Asks you to enter your password by following email instructions",
+      detail: "Legitimate services never ask you to enter credentials via a link in an email."
+    },
+    {
+      test: t => /\baccount (has been |is |on )?(hold|suspended|locked|restricted|limited)\b/i.test(t),
+      weight: 1.5,
+      label: "Account-restriction urgency framing",
+      detail: ""
+    },
+    {
+      test: t => /\bwithin (24|12|48)\s*hours?\b|\bact (now|immediately)\b/i.test(t),
+      weight: 1.5,
+      label: "Time-boxed urgency pressure",
+      detail: ""
+    },
+    {
+      test: t => /\b(you will not be able to|delay your ability to|until we verify)\b/i.test(t),
+      weight: 1,
+      label: "Threatens restricted service until compliance",
+      detail: ""
+    }
+  ]
+};
+
+let currentMode = 'auto';
+
+const shotZone = document.getElementById('shotZone');
+const shotInput = document.getElementById('shotInput');
+const shotStatus = document.getElementById('shotStatus');
+const shotStatusText = document.getElementById('shotStatusText');
+const postText = document.getElementById('posttext');
+
+function setShotStatus(msg, isError){
+  shotStatus.classList.add('show');
+  shotStatus.classList.toggle('error', !!isError);
+  shotStatus.querySelector('.spinner').style.display = isError ? 'none' : 'block';
+  shotStatusText.textContent = msg;
+}
+function clearShotStatus(){ shotStatus.classList.remove('show'); }
+
+async function runOCR(file){
+  if(!file || !file.type.startsWith('image/')){
+    setShotStatus('That doesn\'t look like an image file.', true);
+    return;
+  }
+  if(typeof Tesseract === 'undefined'){
+    setShotStatus('OCR library failed to load — check your connection, or paste the text manually.', true);
+    return;
+  }
+  setShotStatus('Reading image…', false);
+  try{
+    const result = await Tesseract.recognize(file, 'eng');
+    const extracted = (result.data && result.data.text ? result.data.text : '').trim();
+    if(!extracted){
+      setShotStatus('Couldn\'t find readable text in that image — try pasting the text manually.', true);
+      return;
+    }
+    postText.value = extracted;
+    postText.focus();
+    setShotStatus('Text extracted — review below before running (OCR isn\'t perfect, fix anything that looks off).', false);
+    shotStatus.querySelector('.spinner').style.display = 'none';
+  }catch(err){
+    const detail = (err && err.message) ? ` (${err.message})` : '';
+    setShotStatus('Couldn\'t read that image' + detail + ' — try pasting the text manually.', true);
+  }
+}
+
+postText.addEventListener('paste', e => {
+  const items = e.clipboardData && e.clipboardData.items;
+  if(!items) return;
+  for(const item of items){
+    if(item.type.startsWith('image/')){
+      e.preventDefault();
+      runOCR(item.getAsFile());
+      return;
+    }
+  }
+});
+
+shotZone.addEventListener('click', () => shotInput.click());
+shotZone.addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' ') shotInput.click(); });
+shotInput.addEventListener('change', e => { if(e.target.files[0]) runOCR(e.target.files[0]); });
+
+['dragover','dragenter'].forEach(evt => shotZone.addEventListener(evt, e => {
+  e.preventDefault(); shotZone.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(evt => shotZone.addEventListener(evt, e => {
+  e.preventDefault(); shotZone.classList.remove('dragover');
+}));
+shotZone.addEventListener('drop', e => {
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(file) runOCR(file);
+});
+
+document.getElementById('modeSelect').addEventListener('click', e => {
+  const btn = e.target.closest('.mode-btn');
+  if(!btn) return;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentMode = btn.dataset.mode;
+});
+
+function detectMode(t){
+  const phishingSignals = /\b(verify your (payment|account)|account (has been |is )?(on hold|suspended|locked)|upload.{0,20}(document|proof of identity)|customer service|unsubscribe|dear (valued )?customer|click (here|the link) to|reset your password|regards,?)\b/i;
+  const genericEmailSignals = /\bplease do not respond\b|\bnoreply@|\bpayment (made to|number|date)\s*:|\border (number|confirmation)\s*:|\btracking number\s*:|\bunsubscribe\b/i;
+  return (phishingSignals.test(t) || genericEmailSignals.test(t)) ? 'email' : 'social';
+}
+
+function runChecks(){
+  clearShotStatus();
+  const text = document.getElementById('posttext').value.trim();
+  const account = document.getElementById('account').value;
+  const url = document.getElementById('sourceurl').value;
+
+  if(!text){
+    document.getElementById('posttext').focus();
+    return;
+  }
+
+  const effectiveMode = currentMode === 'auto' ? detectMode(text) : currentMode;
+  const detectedTag = document.getElementById('detectedTag');
+  if(currentMode === 'auto'){
+    detectedTag.textContent = `Auto-detected as: ${effectiveMode === 'email' ? 'Email / message' : 'Social post'} — use the buttons above to override.`;
+    detectedTag.classList.add('show');
+  } else {
+    detectedTag.classList.remove('show');
+  }
+
+  let totalScore = 0;
+  let firedCount = 0;
+  let checkedCount = 0;
+  const catPanel = document.getElementById('categoryPanel');
+  catPanel.innerHTML = '';
+
+  Object.keys(RULES).forEach(cat => {
+    if(!RULE_MODES[cat].includes(effectiveMode)) return;
+    const rules = RULES[cat];
+    const catDiv = document.createElement('div');
+    catDiv.className = 'cat';
+    let catFired = 0;
+
+    const itemsHtml = rules.map(rule => {
+      checkedCount++;
+      let fired = false;
+      try{ fired = !!rule.test(text, account, url); } catch(e){ fired = false; }
+      if(fired){
+        totalScore += rule.weight;
+        firedCount++;
+        catFired++;
+      }
+      return `<div class="flag-item ${fired ? 'fired' : 'clean'}">
+        <div class="flag-icon">${fired ? '⚑' : '✓'}</div>
+        <div class="flag-text">${rule.label}${rule.detail ? `<span class="flag-detail">${rule.detail}</span>` : ''}</div>
+      </div>`;
+    }).join('');
+
+    catDiv.innerHTML = `<div class="cat-title">${cat} <span class="cat-count">${catFired} of ${rules.length} flagged</span></div>${itemsHtml}`;
+    catPanel.appendChild(catDiv);
+  });
+
+  const score = Math.min(10, totalScore);
+  const scoreRounded = Math.round(score * 10) / 10;
+
+  let riskLabel = 'Low', riskColor = 'var(--safe)';
+  if(score >= 6){ riskLabel = 'High'; riskColor = 'var(--danger)'; }
+  else if(score >= 3){ riskLabel = 'Moderate'; riskColor = 'var(--amber)'; }
+
+  document.getElementById('gaugeScore').textContent = scoreRounded + ' / 10';
+  const tag = document.getElementById('riskTag');
+  tag.textContent = riskLabel;
+  tag.style.color = riskColor;
+  tag.style.border = `1px solid ${riskColor}`;
+  tag.style.background = 'rgba(255,255,255,0.03)';
+
+  const needle = document.getElementById('needle');
+  const angle = -90 + (score / 10) * 180;
+  needle.style.transform = `rotate(${angle}deg)`;
+
+  const arc = document.getElementById('gaugeArc');
+  const circumference = 251.3;
+  const offset = circumference - (score / 10) * circumference;
+  arc.style.strokeDashoffset = offset;
+
+  document.getElementById('summaryLine').innerHTML =
+    `<strong>${firedCount}</strong> of <strong>${checkedCount}</strong> structural checks flagged something. ` +
+    (firedCount === 0
+      ? `No structural red flags found — that doesn't confirm the claim is true, only that it doesn't show these particular patterns.`
+      : `This measures <em>how</em> the post is built and framed, not whether the underlying claim is true or false. Use it as a prompt to look closer, not a verdict.`);
+
+  document.getElementById('results').classList.add('show');
+}
+
+document.getElementById('runbtn').addEventListener('click', runChecks);
+</script>
+</body>
+</html>
