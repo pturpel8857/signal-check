@@ -155,7 +155,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.3</div>
+    <div class="eyebrow">Signal Check · v1.4</div>
     <h1>Red flag detector</h1>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
   </header>
@@ -270,8 +270,9 @@ const RULES = {
     {
       test: t => {
         const hasNameColon = /\b[A-Z][a-zA-Z']{1,15}(?:\s+[A-Z][a-zA-Z']{1,15}){0,3}\s*:/.test(t);
+        const isBroadcastLeadIn = /^\s*(WATCH|BREAKING|VIDEO|LIVE|UPDATE|EXCLUSIVE|DEVELOPING|ALERT|NEW)\s*:/i.test(t.trim());
         const hasCitation = /according to|interview|said in|told (reporters|the press)|statement|press conference|spokesperson|full video|watch the clip/i.test(t);
-        return hasNameColon && !hasCitation;
+        return hasNameColon && !isBroadcastLeadIn && !hasCitation;
       },
       weight: 1.5,
       label: "Statement attributed to a named person with no cited source",
