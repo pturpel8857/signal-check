@@ -155,7 +155,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.5</div>
+    <div class="eyebrow">Signal Check · v1.6</div>
     <h1>Red flag detector</h1>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
   </header>
@@ -273,7 +273,13 @@ const RULES = {
         if(hasCitation) return false;
         const broadcastWords = new Set(['watch','breaking','video','live','update','exclusive','developing','alert','new']);
         const matches = [...t.matchAll(/\b([A-Z][a-zA-Z']{1,15}(?:\s+[A-Z][a-zA-Z']{1,15}){0,3})\s*:/g)];
-        return matches.some(m => !broadcastWords.has(m[1].trim().toLowerCase()));
+        return matches.some(m => {
+          const phrase = m[1].trim();
+          const words = phrase.split(/\s+/);
+          const allWordsSubstantial = words.every(w => w.length >= 3);
+          const isBroadcast = broadcastWords.has(phrase.toLowerCase());
+          return allWordsSubstantial && !isBroadcast;
+        });
       },
       weight: 1.5,
       label: "Statement attributed to a named person with no cited source",
