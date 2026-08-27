@@ -155,7 +155,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.7</div>
+    <div class="eyebrow">Signal Check · v1.8</div>
     <h1>Red flag detector</h1>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
   </header>
@@ -344,6 +344,17 @@ const RULES = {
       weight: 2,
       label: "Domain resembles a lookalike/misspelled outlet",
       detail: "Pattern matches known outlet-mimicking domain structures."
+    },
+    {
+      test: t => {
+        const court = /\b(circuit court|court of appeals|supreme court|district court|federal court|appeals court)\b/i.test(t);
+        const dollar = /\$[\d,]+(\.\d+)?\s*(million|billion|thousand)?\b/i.test(t);
+        const citationMarker = /\bv\.\s|\bcase no\.?\s|\bdocket\s|\bno\.\s?\d{2}-\d{2,}|https?:\/\//i.test(t);
+        return court && dollar && !citationMarker;
+      },
+      weight: 2,
+      label: "Cites a court ruling and dollar figure with no case name, docket number, or link",
+      detail: "Real rulings are checkable — a specific court plus a specific dollar amount with nothing to verify it against is a common hoax pattern."
     }
   ],
   "Inflammatory without substance": [
