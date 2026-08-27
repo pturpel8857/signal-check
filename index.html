@@ -149,13 +149,27 @@
   .roadmap-item{font-size:13px; color:var(--muted-2); padding:5px 0; display:flex; gap:8px;}
   .roadmap-item::before{content:"○"; color:var(--muted-2);}
 
+  .verify-panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px 22px; margin-bottom:20px;
+  }
+  .verify-title{font-family:var(--display); font-weight:600; font-size:15px; margin-bottom:4px;}
+  .verify-sub{font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.5;}
+  .verify-links{display:flex; flex-wrap:wrap; gap:10px;}
+  .verify-links a{
+    font-family:var(--mono); font-size:12.5px; color:var(--amber); text-decoration:none;
+    border:1px solid var(--amber-dim); border-radius:100px; padding:7px 14px;
+    transition:background .15s, border-color .15s;
+  }
+  .verify-links a:hover{background:rgba(227,160,56,0.1); border-color:var(--amber);}
+
   footer{margin-top:28px; font-size:12px; color:var(--muted-2); text-align:center; font-family:var(--mono);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.8</div>
+    <div class="eyebrow">Signal Check · v1.9</div>
     <h1>Red flag detector</h1>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
   </header>
@@ -222,6 +236,19 @@
     </div>
 
     <div class="panel" id="categoryPanel"></div>
+
+    <div class="verify-panel">
+      <div class="verify-title">Want to verify further?</div>
+      <div class="verify-sub">This tool checks structure, not truth. These free tools check the claim itself.</div>
+      <div class="verify-links">
+        <a href="https://toolbox.google.com/factcheck/explorer" target="_blank" rel="noopener">Google Fact Check Explorer</a>
+        <a href="https://www.snopes.com" target="_blank" rel="noopener">Snopes</a>
+        <a href="https://www.politifact.com" target="_blank" rel="noopener">PolitiFact</a>
+        <a href="https://apnews.com/hub/ap-fact-check" target="_blank" rel="noopener">AP Fact Check</a>
+        <a href="https://www.reuters.com/fact-check/" target="_blank" rel="noopener">Reuters Fact Check</a>
+        <a href="https://images.google.com" target="_blank" rel="noopener">Google Reverse Image Search</a>
+      </div>
+    </div>
 
     <div class="roadmap">
       <div class="roadmap-title">Planned for v2 — needs an API</div>
@@ -609,7 +636,7 @@ function runChecks(){
   document.getElementById('summaryLine').innerHTML =
     `<strong>${firedCount}</strong> of <strong>${checkedCount}</strong> structural checks flagged something. ` +
     (firedCount === 0
-      ? `No structural red flags found — that doesn't confirm the claim is true, only that it doesn't show these particular patterns.`
+      ? `No structural red flags found. That means it isn't using common manipulation patterns — it does <strong>not</strong> mean the claim is confirmed true. Calm, well-written misinformation can score just as low as accurate reporting. If this matters, check it against real sources below before sharing.`
       : `This measures <em>how</em> the post is built and framed, not whether the underlying claim is true or false. Use it as a prompt to look closer, not a verdict.`);
 
   document.getElementById('results').classList.add('show');
