@@ -155,7 +155,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.6</div>
+    <div class="eyebrow">Signal Check · v1.7</div>
     <h1>Red flag detector</h1>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
   </header>
@@ -298,6 +298,18 @@ const RULES = {
       weight: 1.5,
       label: "\"X destroys/obliterates Y\" debate-clip framing",
       detail: "Common clickbait pattern presenting a clip as a decisive win without evidence."
+    },
+    {
+      test: t => {
+        const hype = /\b(BOOM|HUGE|WOW|MASSIVE|UNREAL|EPIC)\s*!/i.test(t);
+        if(!hype) return false;
+        const namedClaim = /\b[A-Z][a-z]+(?:\s[A-Z][a-z]+){0,2}\s+(is (in )?support|supports|announced|confirms|admits|claims|says (he|she|they))\b/.test(t);
+        const citation = /according to|interview|said in|told (reporters|the press)|statement|press conference|spokesperson|full video|full speech|watch the clip/i.test(t);
+        return namedClaim && !citation;
+      },
+      weight: 2,
+      label: "Hype interjection (\"BOOM!\") + unsourced claim about a named public figure",
+      detail: "Attributes a specific position or statement to a real person with no citation, dressed as a dramatic reveal."
     }
   ],
   "Engagement-farm tells": [
