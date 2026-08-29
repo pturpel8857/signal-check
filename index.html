@@ -169,7 +169,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.9</div>
+    <div class="eyebrow">Signal Check · v1.10</div>
     <h1>Red flag detector</h1>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
   </header>
@@ -314,6 +314,12 @@ const RULES = {
     }
   ],
   "Recycled / vague framing": [
+    {
+      test: t => /\b(produced by|scripted|reconstructed by|dramatiz(ed|ation)|vertical drama|fictionaliz)\b/i.test(t),
+      weight: 3,
+      label: "Content discloses itself as scripted/dramatized",
+      detail: "The post's own branding admits this is staged fiction, not a real event — but it's presented without that context."
+    },
     {
       test: t => /you (won'?t|wont) believe|they (don'?t|dont) want you to know|what they('re| are) hiding|the truth about/i.test(t),
       weight: 1.5,
