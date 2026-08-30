@@ -173,7 +173,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">Signal Check · v1.12</div>
+    <div class="eyebrow">Signal Check · v1.13</div>
     <h1>Red flag detector</h1>
     <div class="tagline">Stop. Look both ways. Then decide.</div>
     <div class="sub">Structural pattern analysis — not a truth verdict. Flags how a post is built and framed, not what side it's on. Runs entirely in your browser.</div>
@@ -274,6 +274,7 @@ const RULE_MODES = {
   "Recycled / vague framing": ["social", "email"],
   "Engagement-farm tells": ["social"],
   "Sourcing red flags": ["social", "email"],
+  "Narrative consistency": ["social"],
   "Inflammatory without substance": ["social", "email"],
   "Phishing / credential harvesting": ["email"]
 };
@@ -394,6 +395,18 @@ const RULES = {
       weight: 2,
       label: "Cites a court ruling and dollar figure with no case name, docket number, or link",
       detail: "Real rulings are checkable — a specific court plus a specific dollar amount with nothing to verify it against is a common hoax pattern."
+    }
+  ],
+  "Narrative consistency": [
+    {
+      test: t => {
+        const firstPersonFamily = (t.match(/\bmy (mother|father|mom|dad|parents?)\b/gi) || []).length >= 2;
+        const secondhandDisclosure = /\bthis is from my\s+(neighbor|friend|cousin|coworker|colleague)\b/i.test(t);
+        return firstPersonFamily && secondhandDisclosure;
+      },
+      weight: 2,
+      label: "First-person family story paired with a secondhand disclosure",
+      detail: "The narrative claims direct ownership (\"my mother,\" \"my father\") but is disclosed elsewhere as someone else's story — a common sign of a copy-paste chain post rather than the poster's own account."
     }
   ],
   "Inflammatory without substance": [
